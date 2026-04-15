@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "90052190180",
+    "project_id": "project-16c0b338-c9e0-4077-a5a",
+    "storage_bucket": "project-16c0b338-c9e0-4077-a5a.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:90052190180:android:35c34d6985ae28c8e831f1",
+        "android_client_info": {
+          "package_name": "com.urbango.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCWiST4K2AqYLK4dwDmEzd0Ajv78V7e1kc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
