@@ -52,6 +52,12 @@ class ConnectionManager:
                 await websocket.send_text(json.dumps(data))
             except:
                 pass
+    async def notify_drivers(self, data: dict):
+        for driver_id, websocket in self.drivers.items():
+            try:
+                await websocket.send_text(json.dumps(data))
+            except:
+                pass
 
 # Instancia global
 manager = ConnectionManager()
