@@ -16,6 +16,7 @@ pyasn1==0.6.3
 pycparser==3.0
 pydantic==2.13.0
 pydantic_core==2.46.0
+python-dotenv==1.2.2
 python-jose==3.5.0
 python-multipart==0.0.26
 rsa==4.9.1
@@ -25,3 +26,4 @@ starlette==1.0.0
 typing-inspection==0.4.2
 typing_extensions==4.15.0
 uvicorn==0.44.0
+websockets==16.0

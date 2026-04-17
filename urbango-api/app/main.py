@@ -4,6 +4,7 @@ from app.config import APP_NAME, APP_VERSION
 from app.database import engine, Base
 from app.routes import auth
 from app.routes import drivers
+from app.websocket import routes as ws_routes
 
 # Crear tablas en la base de datos
 Base.metadata.create_all(bind=engine)
@@ -26,6 +27,7 @@ app.add_middleware(
 # Rutas
 app.include_router(auth.router)
 app.include_router(drivers.router)
+app.include_router(ws_routes.router)
 
 @app.get("/")
 def root():
