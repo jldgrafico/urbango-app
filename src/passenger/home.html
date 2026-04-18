@@ -195,32 +195,54 @@ let currentTripId = null;
 let ws = null;
 let currentStep = 0;
 
+// Función para obtener ubicación con fallback
+async function getLocation() {
+    // Intentar con Capacitor primero
+    try {
+        if (window.Capacitor && window.Capacitor.isNativePlatform()) {
+            const { Geolocation } = await import('@capacitor/geolocation');
+            const pos = await Geolocation.getCurrentPosition({ timeout: 10000 });
+            return { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        }
+    } catch(e) {
+        console.log('Capacitor GPS falló, usando navegador');
+    }
+
+    // Fallback al navegador
+    return new Promise((resolve) => {
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                pos => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+                () => resolve({ lat: 10.4806, lng: -66.9036 }),
+                { timeout: 10000 }
+            );
+        } else {
+            resolve({ lat: 10.4806, lng: -66.9036 });
+        }
+    });
+}
+
 // Inicializar mapa
-function initMap() {
+async function initMap() {
     map = L.map('map', { zoomControl: false, attributionControl: false }).setView([10.4806, -66.9036], 14);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-    // Obtener ubicación real del usuario
-    if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(pos => {
-            userLat = pos.coords.latitude;
-            userLng = pos.coords.longitude;
-            map.setView([userLat, userLng], 15);
+    // Obtener ubicación
+    const location = await getLocation();
+    userLat = location.lat;
+    userLng = location.lng;
 
-            userMarker = L.marker([userLat, userLng], {
-                icon: L.divIcon({
-                    html: '<div style="width:36px;height:36px;border-radius:50%;background:#1e1e1e;border:3px solid #e8ff47;display:flex;align-items:center;justify-content:center;font-size:16px">🧑‍💼</div>',
-                    className:'', iconSize:[36,36], iconAnchor:[18,18]
-                })
-            }).addTo(map);
+    map.setView([userLat, userLng], 15);
 
-            document.getElementById('originInput').value = `${userLat.toFixed(4)}, ${userLng.toFixed(4)}`;
-        }, err => {
-            userLat = 10.4806;
-            userLng = -66.9036;
-            document.getElementById('originInput').value = 'Plaza Bolívar, Centro';
-        });
-    }
+    userMarker = L.marker([userLat, userLng], {
+        icon: L.divIcon({
+            html: '<div style="width:36px;height:36px;border-radius:50%;background:#1e1e1e;border:3px solid #e8ff47;display:flex;align-items:center;justify-content:center;font-size:16px">🧑‍💼</div>',
+            className:'', iconSize:[36,36], iconAnchor:[18,18]
+        })
+    }).addTo(map);
+
+    document.getElementById('originInput').value = `${userLat.toFixed(4)}, ${userLng.toFixed(4)}`;
+    document.getElementById('btnRequest').disabled = false;
 }
 
 // Conectar WebSocket del pasajero
@@ -258,7 +280,7 @@ function updateTripStatus(status, driverId) {
         document.getElementById('tripStatus').textContent = statusMap[status] || status;
     }
 
-    if (status === 'accepted' || status === 'driver_en_route' || status === 'arrived' || status === 'onboard' || status === 'in_progress') {
+    if (['accepted','driver_en_route','arrived','onboard','in_progress'].includes(status)) {
         showStep(2);
     }
 
