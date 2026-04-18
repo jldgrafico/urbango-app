@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>UrbanGo — Registro</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: #0a0a0a;
+    color: #f5f4f0;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+  .logo { font-family:'Syne',sans-serif; font-size:40px; font-weight:800; letter-spacing:-2px; margin-bottom:32px; }
+  .logo span { color:#e8ff47; }
+  .card { background:#1a1a1a; border-radius:24px; padding:32px 24px; width:100%; max-width:380px; }
+  .card h2 { font-family:'Syne',sans-serif; font-size:22px; font-weight:700; margin-bottom:24px; }
+  .field { margin-bottom:16px; }
+  .field label { font-size:12px; color:#888; letter-spacing:1px; text-transform:uppercase; display:block; margin-bottom:8px; }
+  .field input, .field select {
+    width:100%; background:#0a0a0a; border:1px solid #2e2e2e;
+    border-radius:12px; padding:14px 16px; color:#f5f4f0;
+    font-family:'DM Sans',sans-serif; font-size:15px; outline:none;
+    transition:border-color .2s;
+  }
+  .field input:focus, .field select:focus { border-color:#e8ff47; }
+  .field select option { background:#1a1a1a; }
+  .role-selector { display:flex; gap:10px; margin-bottom:20px; }
+  .role-btn {
+    flex:1; padding:12px; border-radius:12px;
+    background:#0a0a0a; border:2px solid #2e2e2e;
+    color:#888; font-family:'DM Sans',sans-serif; font-size:13px;
+    cursor:pointer; text-align:center; transition:all .2s;
+  }
+  .role-btn.active { border-color:#e8ff47; color:#e8ff47; background:#1a1f00; }
+  .role-btn .icon { font-size:24px; display:block; margin-bottom:4px; }
+  .btn {
+    width:100%; padding:16px; border-radius:14px;
+    background:#e8ff47; color:#0a0a0a;
+    font-family:'Syne',sans-serif; font-weight:700; font-size:16px;
+    border:none; cursor:pointer; margin-top:8px;
+    transition:opacity .2s;
+  }
+  .btn:active { opacity:.8; }
+  .btn-ghost {
+    width:100%; padding:14px; border-radius:14px;
+    background:transparent; color:#888;
+    font-family:'DM Sans',sans-serif; font-size:14px;
+    border:1px solid #2e2e2e; cursor:pointer; margin-top:10px;
+  }
+  .error { background:#ff000020; border:1px solid #ff000040; border-radius:10px; padding:10px 14px; font-size:13px; color:#ff6b6b; margin-bottom:16px; display:none; }
+  .success { background:#00ff0020; border:1px solid #00ff0040; border-radius:10px; padding:10px 14px; font-size:13px; color:#4ade80; margin-bottom:16px; display:none; }
+</style>
+</head>
+<body>
+  <div class="logo">Urban<span>Go</span></div>
+
+  <div class="card">
+    <h2>Crear cuenta</h2>
+    <div class="error" id="errorMsg"></div>
+    <div class="success" id="successMsg"></div>
+
+    <div class="field">
+      <label>¿Cómo usarás UrbanGo?</label>
+      <div class="role-selector">
+        <div class="role-btn active" id="rolePassenger" onclick="selectRole('passenger')">
+          <span class="icon">🧑‍💼</span>Pasajero
+        </div>
+        <div class="role-btn" id="roleDriver" onclick="selectRole('driver')">
+          <span class="icon">🚗</span>Conductor
+        </div>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Nombre completo</label>
+      <input type="text" id="fullName" placeholder="Tu nombre">
+    </div>
+    <div class="field">
+      <label>Teléfono</label>
+      <input type="tel" id="phone" placeholder="04140000000">
+    </div>
+    <div class="field">
+      <label>Correo (opcional)</label>
+      <input type="email" id="email" placeholder="tu@correo.com">
+    </div>
+    <div class="field">
+      <label>Contraseña</label>
+      <input type="password" id="password" placeholder="Mínimo 6 caracteres">
+    </div>
+
+    <button class="btn" onclick="register()">Crear cuenta →</button>
+    <button class="btn-ghost" onclick="window.location.href='login.html'">¿Ya tienes cuenta? Inicia sesión</button>
+  </div>
+
+<script type="module">
+import api from '../shared/api.js';
+import auth from '../shared/auth.js';
+
+let selectedRole = 'passenger';
+
+window.selectRole = function(role) {
+    selectedRole = role;
+    document.getElementById('rolePassenger').classList.toggle('active', role === 'passenger');
+    document.getElementById('roleDriver').classList.toggle('active', role === 'driver');
+}
+
+window.register = async function() {
+    const fullName = document.getElementById('fullName').value.trim();
+    const phone = document.getElementById('phone').value.trim();
+    const email = document.getElementById('email').value.trim();
+    const password = document.getElementById('password').value.trim();
+    const errorMsg = document.getElementById('errorMsg');
+    const successMsg = document.getElementById('successMsg');
+
+    errorMsg.style.display = 'none';
+    successMsg.style.display = 'none';
+
+    if (!fullName || !phone || !password) {
+        errorMsg.textContent = 'Por favor completa los campos obligatorios';
+        errorMsg.style.display = 'block';
+        return;
+    }
+
+    if (password.length < 6) {
+        errorMsg.textContent = 'La contraseña debe tener mínimo 6 caracteres';
+        errorMsg.style.display = 'block';
+        return;
+    }
+
+    try {
+        const data = await api.post('/auth/register', {
+            full_name: fullName,
+            phone,
+            email: email || null,
+            password,
+            role: selectedRole
+        });
+
+        if (data.id) {
+            successMsg.textContent = '¡Cuenta creada! Redirigiendo...';
+            successMsg.style.display = 'block';
+            setTimeout(() => window.location.href = 'login.html', 1500);
+        } else {
+            errorMsg.textContent = data.detail || 'Error al crear la cuenta';
+            errorMsg.style.display = 'block';
+        }
+    } catch(e) {
+        errorMsg.textContent = 'Error de conexión. Verifica tu internet.';
+        errorMsg.style.display = 'block';
+    }
+}
+</script>
+</body>
+</html>

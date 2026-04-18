@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>UrbanGo — Iniciar Sesión</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: #0a0a0a;
+    color: #f5f4f0;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+  .logo { font-family:'Syne',sans-serif; font-size:48px; font-weight:800; letter-spacing:-2px; margin-bottom:8px; }
+  .logo span { color:#e8ff47; }
+  .tagline { color:#555; font-size:13px; letter-spacing:3px; text-transform:uppercase; margin-bottom:48px; }
+  .card { background:#1a1a1a; border-radius:24px; padding:32px 24px; width:100%; max-width:380px; }
+  .card h2 { font-family:'Syne',sans-serif; font-size:22px; font-weight:700; margin-bottom:24px; }
+  .field { margin-bottom:16px; }
+  .field label { font-size:12px; color:#888; letter-spacing:1px; text-transform:uppercase; display:block; margin-bottom:8px; }
+  .field input {
+    width:100%; background:#0a0a0a; border:1px solid #2e2e2e;
+    border-radius:12px; padding:14px 16px; color:#f5f4f0;
+    font-family:'DM Sans',sans-serif; font-size:15px; outline:none;
+    transition:border-color .2s;
+  }
+  .field input:focus { border-color:#e8ff47; }
+  .btn {
+    width:100%; padding:16px; border-radius:14px;
+    background:#e8ff47; color:#0a0a0a;
+    font-family:'Syne',sans-serif; font-weight:700; font-size:16px;
+    border:none; cursor:pointer; margin-top:8px;
+    transition:opacity .2s;
+  }
+  .btn:active { opacity:.8; }
+  .btn-ghost {
+    width:100%; padding:14px; border-radius:14px;
+    background:transparent; color:#888;
+    font-family:'DM Sans',sans-serif; font-size:14px;
+    border:1px solid #2e2e2e; cursor:pointer; margin-top:10px;
+    transition:all .2s;
+  }
+  .btn-ghost:hover { border-color:#e8ff47; color:#e8ff47; }
+  .error { background:#ff000020; border:1px solid #ff000040; border-radius:10px; padding:10px 14px; font-size:13px; color:#ff6b6b; margin-bottom:16px; display:none; }
+  .loading { opacity:.6; pointer-events:none; }
+</style>
+</head>
+<body>
+  <div class="logo">Urban<span>Go</span></div>
+  <div class="tagline">Tu ciudad, tu ritmo</div>
+
+  <div class="card">
+    <h2>Iniciar sesión</h2>
+    <div class="error" id="errorMsg"></div>
+    <div class="field">
+      <label>Teléfono</label>
+      <input type="tel" id="phone" placeholder="04140000000">
+    </div>
+    <div class="field">
+      <label>Contraseña</label>
+      <input type="password" id="password" placeholder="••••••••">
+    </div>
+    <button class="btn" id="btnLogin" onclick="login()">Entrar →</button>
+    <button class="btn-ghost" onclick="window.location.href='register.html'">¿No tienes cuenta? Regístrate</button>
+  </div>
+
+<script type="module">
+import api from '../shared/api.js';
+import auth from '../shared/auth.js';
+
+// Redirigir si ya está logueado
+if (auth.isLoggedIn()) {
+    window.location.href = 'home.html';
+}
+
+window.login = async function() {
+    const phone = document.getElementById('phone').value.trim();
+    const password = document.getElementById('password').value.trim();
+    const errorMsg = document.getElementById('errorMsg');
+    const btn = document.getElementById('btnLogin');
+
+    if (!phone || !password) {
+        errorMsg.textContent = 'Por favor completa todos los campos';
+        errorMsg.style.display = 'block';
+        return;
+    }
+
+    btn.classList.add('loading');
+    btn.textContent = 'Entrando...';
+    errorMsg.style.display = 'none';
+
+    try {
+        const data = await api.post('/auth/login', { phone, password });
+        
+        if (data.access_token) {
+            auth.saveSession(data);
+            // Redirigir según rol
+            if (data.user.role === 'driver') {
+                window.location.href = '../driver/home.html';
+            } else {
+                window.location.href = 'home.html';
+            }
+        } else {
+            errorMsg.textContent = data.detail || 'Credenciales incorrectas';
+            errorMsg.style.display = 'block';
+        }
+    } catch(e) {
+        errorMsg.textContent = 'Error de conexión. Verifica tu internet.';
+        errorMsg.style.display = 'block';
+    }
+
+    btn.classList.remove('loading');
+    btn.textContent = 'Entrar →';
+}
+</script>
+</body>
+</html>
