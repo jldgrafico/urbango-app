@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>UrbanGo — Conductor</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:'DM Sans',sans-serif; background:#0a0a0a; color:#f5f4f0; height:100vh; overflow:hidden; display:flex; flex-direction:column; }
+
+  #header {
+    position:relative; z-index:500;
+    background:#0a0a0a; border-bottom:1px solid #1e1e1e;
+    padding:12px 16px;
+    display:flex; align-items:center; justify-content:space-between;
+    flex-shrink:0;
+  }
+  .logo { font-family:'Syne',sans-serif; font-weight:800; font-size:20px; letter-spacing:-1px; }
+  .logo span { color:#e8ff47; }
+  .status-pill {
+    padding:4px 12px; border-radius:20px; font-size:12px; font-weight:600;
+    border:1px solid #2e2e2e; color:#888;
+    transition:all .3s;
+  }
+  .status-pill.online { background:#1a2a00; border-color:#e8ff47; color:#e8ff47; }
+
+  #mapContainer { flex:1; position:relative; min-height:0; }
+  #map { width:100%; height:100%; }
+  .leaflet-tile { filter: brightness(0.7) saturate(0.5); }
+
+  #panel {
+    position:absolute; bottom:0; left:0; right:0; z-index:400;
+    background:#0a0a0a; border-radius:24px 24px 0 0;
+    border-top:1px solid #1e1e1e;
+    padding:0 16px 32px;
+  }
+  .handle { width:40px; height:4px; background:#2e2e2e; border-radius:2px; margin:12px auto 16px; }
+
+  .dstep { display:none; flex-direction:column; gap:12px; }
+  .dstep.active { display:flex; }
+
+  .step-title { font-family:'Syne',sans-serif; font-size:20px; font-weight:700; }
+  .step-title span { color:#e8ff47; }
+
+  /* Toggle */
+  .toggle-row {
+    display:flex; align-items:center; justify-content:space-between;
+    background:#1a1a1a; border-radius:14px; padding:14px 16px;
+  }
+  .toggle-label { font-family:'Syne',sans-serif; font-weight:700; font-size:15px; }
+  .toggle-sub { font-size:12px; color:#888; margin-top:2px; }
+  .toggle-sw {
+    width:54px; height:30px; background:#2e2e2e; border-radius:15px;
+    cursor:pointer; position:relative; transition:background .3s; border:none;
+  }
+  .toggle-sw::after {
+    content:''; position:absolute; left:4px; top:4px;
+    width:22px; height:22px; border-radius:50%; background:#888;
+    transition:transform .3s, background .3s;
+  }
+  .toggle-sw.on { background:#1a2a00; border:1px solid #e8ff47; }
+  .toggle-sw.on::after { transform:translateX(24px); background:#e8ff47; }
+
+  /* Stats */
+  .stats-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .stat-card { background:#1a1a1a; border-radius:12px; padding:14px; }
+  .stat-val { font-family:'Syne',sans-serif; font-weight:800; font-size:24px; color:#e8ff47; }
+  .stat-label { font-size:11px; color:#888; margin-top:4px; }
+
+  /* Solicitud entrante */
+  .incoming-card {
+    background:linear-gradient(135deg, #1a2a00, #0a1500);
+    border:2px solid #e8ff47; border-radius:18px; padding:16px;
+    display:flex; flex-direction:column; gap:12px;
+    animation:incoming .4s ease;
+  }
+  @keyframes incoming { from{transform:scale(.95);opacity:0} to{transform:scale(1);opacity:1} }
+
+  .inc-header { display:flex; justify-content:space-between; align-items:center; }
+  .inc-badge {
+    background:#e8ff47; color:#0a0a0a;
+    font-family:'Syne',sans-serif; font-weight:700; font-size:11px;
+    padding:4px 10px; border-radius:20px; letter-spacing:1px;
+  }
+  .inc-timer { font-family:'Syne',sans-serif; font-size:26px; font-weight:800; color:#e8ff47; }
+
+  .route-info { display:flex; flex-direction:column; gap:8px; }
+  .route-row { display:flex; align-items:flex-start; gap:10px; }
+  .route-dot { width:10px; height:10px; border-radius:50%; margin-top:4px; flex-shrink:0; }
+  .route-dot.origin { background:#e8ff47; }
+  .route-dot.dest { background:#ff6b35; }
+  .route-text { font-size:13px; line-height:1.4; }
+  .route-text small { color:#888; font-size:11px; }
+  .route-line { width:2px; height:14px; background:#2e2e2e; margin-left:4px; }
+
+  .inc-stats { display:flex; gap:10px; }
+  .inc-stat { flex:1; background:#0a0a0a; border-radius:10px; padding:8px; text-align:center; }
+  .inc-stat .sv { font-family:'Syne',sans-serif; font-weight:700; font-size:18px; color:#e8ff47; }
+  .inc-stat .sl { font-size:10px; color:#888; margin-top:2px; }
+
+  .btn-row { display:flex; gap:10px; }
+  .btn-main {
+    flex:1; padding:14px; border-radius:14px;
+    font-family:'Syne',sans-serif; font-weight:700; font-size:14px;
+    border:none; cursor:pointer; transition:opacity .2s;
+  }
+  .btn-accept { background:#e8ff47; color:#0a0a0a; }
+  .btn-reject { background:#1a1a1a; color:#888; border:1px solid #2e2e2e; }
+  .btn-full {
+    width:100%; padding:16px; border-radius:14px;
+    font-family:'Syne',sans-serif; font-weight:700; font-size:15px;
+    border:none; cursor:pointer;
+  }
+  .btn-primary { background:#e8ff47; color:#0a0a0a; }
+  .btn-danger { background:#f87171; color:#fff; }
+  .btn-ghost { background:#1a1a1a; color:#f5f4f0; border:1px solid #2e2e2e; }
+
+  /* Pasajero card */
+  .passenger-card {
+    background:#1a1a1a; border-radius:14px; padding:14px;
+    display:flex; gap:12px; align-items:center;
+  }
+  .p-avatar {
+    width:46px; height:46px; border-radius:50%;
+    background:#2e2e2e; display:flex; align-items:center;
+    justify-content:center; font-size:20px; flex-shrink:0;
+  }
+  .p-name { font-family:'Syne',sans-serif; font-weight:700; font-size:15px; }
+  .p-sub { font-size:12px; color:#888; margin-top:2px; }
+  .p-fare { font-family:'Syne',sans-serif; font-weight:800; font-size:20px; color:#e8ff47; }
+</style>
+</head>
+<body>
+
+<div id="header">
+  <div class="logo">Urban<span>Go</span></div>
+  <div style="display:flex;align-items:center;gap:10px">
+    <span class="user-info" id="driverName" style="font-size:12px;color:#888"></span>
+    <span class="status-pill" id="statusPill">Offline</span>
+  </div>
+</div>
+
+<div id="mapContainer">
+  <div id="map"></div>
+</div>
+
+<div id="panel">
+  <div class="handle"></div>
+
+  <!-- Step 0: Offline -->
+  <div class="dstep active" id="dStep0">
+    <div class="step-title">Estás <span>offline</span></div>
+    <div class="toggle-row">
+      <div>
+        <div class="toggle-label">Conectarme</div>
+        <div class="toggle-sub">Activa para recibir viajes</div>
+      </div>
+      <button class="toggle-sw" id="toggleBtn" onclick="goOnline()"></button>
+    </div>
+    <div class="stats-grid">
+      <div class="stat-card"><div class="stat-val" id="totalTrips">0</div><div class="stat-label">Viajes hoy</div></div>
+      <div class="stat-card"><div class="stat-val" id="totalEarnings">Bs.0</div><div class="stat-label">Ganancias</div></div>
+    </div>
+  <button onclick="localStorage.clear();location.reload();" ...>Cerrar sesión</button>  </div>
+
+  <!-- Step 1: Online esperando -->
+  <div class="dstep" id="dStep1">
+    <div class="step-title">Estás <span>activo</span> 🟢</div>
+    <div class="toggle-row">
+      <div>
+        <div class="toggle-label">Conectado</div>
+        <div class="toggle-sub">Esperando solicitudes...</div>
+      </div>
+      <button class="toggle-sw on" onclick="goOffline()"></button>
+    </div>
+    <div class="stats-grid">
+      <div class="stat-card"><div class="stat-val" id="totalTrips1">0</div><div class="stat-label">Viajes hoy</div></div>
+      <div class="stat-card"><div class="stat-val" id="totalEarnings1">Bs.0</div><div class="stat-label">Ganancias</div></div>
+    </div>
+  </div>
+
+  <!-- Step 2: Solicitud entrante -->
+  <div class="dstep" id="dStep2">
+    <div class="incoming-card">
+      <div class="inc-header">
+        <div class="inc-badge">⚡ NUEVO VIAJE</div>
+        <div class="inc-timer" id="incTimer">15</div>
+      </div>
+      <div class="route-info">
+        <div class="route-row">
+          <div class="route-dot origin"></div>
+          <div class="route-text" id="incOrigin">Cargando...</div>
+        </div>
+        <div class="route-line" style="margin-left:4px"></div>
+        <div class="route-row">
+          <div class="route-dot dest"></div>
+          <div class="route-text" id="incDest">Cargando...</div>
+        </div>
+      </div>
+      <div class="inc-stats">
+        <div class="inc-stat"><div class="sv" id="incDist">0 km</div><div class="sl">distancia</div></div>
+        <div class="inc-stat"><div class="sv" id="incFare">Bs.0</div><div class="sl">tarifa</div></div>
+        <div class="inc-stat"><div class="sv" id="incPayment">💵</div><div class="sl">pago</div></div>
+      </div>
+      <div class="btn-row">
+        <button class="btn-main btn-reject" onclick="rejectTrip()">Rechazar</button>
+        <button class="btn-main btn-accept" style="flex:2" onclick="acceptTrip()">✓ Aceptar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 3: En camino al pasajero -->
+  <div class="dstep" id="dStep3">
+    <div class="step-title">Ve a buscar al <span>pasajero</span></div>
+    <div class="passenger-card">
+      <div class="p-avatar">🧑‍💼</div>
+      <div style="flex:1">
+        <div class="p-name" id="passengerName">Pasajero</div>
+        <div class="p-sub" id="passengerOrigin">Origen del viaje</div>
+      </div>
+      <div class="p-fare" id="tripFare">Bs.0</div>
+    </div>
+    <button class="btn-full btn-primary" onclick="updateStatus('arrived')">Llegué al punto de recogida</button>
+    <button class="btn-full btn-danger" style="margin-top:8px" onclick="updateStatus('cancelled')">Cancelar viaje</button>
+  </div>
+
+  <!-- Step 4: Pasajero a bordo -->
+  <div class="dstep" id="dStep4">
+    <div class="step-title">Rumbo al <span>destino</span> 🚀</div>
+    <div class="passenger-card">
+      <div class="p-avatar">🧑‍💼</div>
+      <div style="flex:1">
+        <div class="p-name" id="passengerName2">Pasajero</div>
+        <div class="p-sub" id="tripDest">Destino del viaje</div>
+      </div>
+      <div class="p-fare" id="tripFare2">Bs.0</div>
+    </div>
+    <button class="btn-full btn-primary" onclick="updateStatus('completed')">Finalizar viaje — llegamos ✓</button>
+  </div>
+
+  <!-- Step 5: Viaje completado -->
+  <div class="dstep" id="dStep5">
+    <div class="step-title">¡Viaje <span>completado!</span> 💰</div>
+    <div class="passenger-card">
+      <div class="p-avatar">💰</div>
+      <div style="flex:1">
+        <div class="p-name">Cobrar al pasajero</div>
+        <div class="p-sub" id="completedFareLabel">Monto a cobrar</div>
+      </div>
+      <div class="p-fare" id="completedFare">Bs.0</div>
+    </div>
+    <button class="btn-full btn-primary" onclick="backOnline()">Seguir conectado →</button>
+  </div>
+</div>
+
+<script type="module">
+import api from '../shared/api.js';
+import auth from '../shared/auth.js';
+
+if (!auth.requireAuth()) return;
+
+const user = auth.getUser();
+document.getElementById('driverName').textContent = user.full_name;
+
+let map, driverMarker;
+let ws = null;
+let currentTripId = null;
+let currentTrip = null;
+let timerInterval = null;
+let locationInterval = null;
+let driverLat = 10.4806, driverLng = -66.9036;
+
+// Inicializar mapa
+function initMap() {
+    map = L.map('map', { zoomControl: false, attributionControl: false }).setView([driverLat, driverLng], 14);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+    driverMarker = L.marker([driverLat, driverLng], {
+        icon: L.divIcon({
+            html: '<div style="width:36px;height:36px;border-radius:50%;background:#1e1e1e;border:3px solid #e8ff47;display:flex;align-items:center;justify-content:center;font-size:18px">🚗</div>',
+            className:'', iconSize:[36,36], iconAnchor:[18,18]
+        })
+    }).addTo(map);
+
+    // Intentar GPS real
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(pos => {
+            driverLat = pos.coords.latitude;
+            driverLng = pos.coords.longitude;
+            map.setView([driverLat, driverLng], 15);
+            driverMarker.setLatLng([driverLat, driverLng]);
+        });
+    }
+}
+
+// WebSocket conductor
+function connectWS() {
+    ws = new WebSocket(`ws://localhost:8000/ws/driver/${user.id}`);
+
+    ws.onopen = () => {
+        console.log('WebSocket conductor conectado');
+        startLocationUpdates();
+    };
+
+    ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+
+        if (data.type === 'trip_request') {
+            showTripRequest(data);
+        }
+    };
+
+    ws.onclose = () => {
+        stopLocationUpdates();
+        setTimeout(connectWS, 3000);
+    };
+}
+
+// Enviar ubicación cada 5 segundos
+function startLocationUpdates() {
+    locationInterval = setInterval(() => {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({
+                type: 'location_update',
+                lat: driverLat,
+                lng: driverLng
+            }));
+        }
+    }, 5000);
+}
+
+function stopLocationUpdates() {
+    if (locationInterval) clearInterval(locationInterval);
+}
+
+// Mostrar solicitud entrante
+function showTripRequest(data) {
+    currentTripId = data.trip_id;
+    currentTrip = data;
+
+    document.getElementById('incOrigin').textContent = data.origin;
+    document.getElementById('incDest').textContent = data.destination;
+    document.getElementById('incDist').textContent = `${data.distance_km} km`;
+    document.getElementById('incFare').textContent = `Bs.${data.fare}`;
+    document.getElementById('incPayment').textContent = data.payment_method === 'cash' ? '💵' : '💳';
+
+    showDStep(2);
+    startIncTimer();
+}
+
+function startIncTimer() {
+    let t = 15;
+    document.getElementById('incTimer').textContent = t;
+    timerInterval = setInterval(() => {
+        t--;
+        document.getElementById('incTimer').textContent = t;
+        if (t <= 0) {
+            clearInterval(timerInterval);
+            rejectTrip();
+        }
+    }, 1000);
+}
+
+window.goOnline = async function() {
+    connectWS();
+    document.getElementById('statusPill').textContent = '🟢 Online';
+    document.getElementById('statusPill').classList.add('online');
+    showDStep(1);
+}
+
+window.goOffline = function() {
+    if (ws) ws.close();
+    document.getElementById('statusPill').textContent = 'Offline';
+    document.getElementById('statusPill').classList.remove('online');
+    showDStep(0);
+}
+
+window.acceptTrip = async function() {
+    clearInterval(timerInterval);
+    const token = auth.getToken();
+    await api.patch(`/trips/${currentTripId}/status`, { status: 'accepted' }, token);
+
+    document.getElementById('passengerName').textContent = 'Pasajero';
+    document.getElementById('passengerName2').textContent = 'Pasajero';
+    document.getElementById('passengerOrigin').textContent = currentTrip?.origin || '';
+    document.getElementById('tripDest').textContent = currentTrip?.destination || '';
+    document.getElementById('tripFare').textContent = `Bs.${currentTrip?.fare || 0}`;
+    document.getElementById('tripFare2').textContent = `Bs.${currentTrip?.fare || 0}`;
+
+    await api.patch(`/trips/${currentTripId}/status`, { status: 'driver_en_route' }, token);
+    showDStep(3);
+}
+
+window.rejectTrip = function() {
+    clearInterval(timerInterval);
+    currentTripId = null;
+    currentTrip = null;
+    showDStep(1);
+}
+
+window.updateStatus = async function(status) {
+    const token = auth.getToken();
+    await api.patch(`/trips/${currentTripId}/status`, { status }, token);
+
+    if (status === 'arrived') {
+        await api.patch(`/trips/${currentTripId}/status`, { status: 'onboard' }, token);
+        showDStep(4);
+    } else if (status === 'completed') {
+        document.getElementById('completedFare').textContent = document.getElementById('tripFare2').textContent;
+        document.getElementById('completedFareLabel').textContent = currentTrip?.payment_method === 'cash' ? 'Cobrar en efectivo' : 'Pago digital';
+        showDStep(5);
+    } else if (status === 'cancelled') {
+        currentTripId = null;
+        showDStep(1);
+    }
+}
+
+window.backOnline = function() {
+    currentTripId = null;
+    currentTrip = null;
+    showDStep(1);
+}
+
+window.logout = function() {
+    if (ws) ws.close();
+    localStorage.clear();
+    window.location.href = '../passenger/login.html';
+}
+
+function showDStep(n) {
+    document.querySelectorAll('.dstep').forEach(s => s.classList.remove('active'));
+    document.getElementById('dStep'+n).classList.add('active');
+}
+
+initMap();
+</script>
+</body>
+</html>

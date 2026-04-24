@@ -1,5 +1,4 @@
-const API_URL = 'http://localhost:8000';
-
+const API_URL = 'http://10.81.70.52:8000';
 const api = {
     async post(endpoint, data, token = null) {
         const headers = { 'Content-Type': 'application/json' };

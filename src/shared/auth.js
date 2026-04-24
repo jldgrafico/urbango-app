@@ -20,12 +20,13 @@ const auth = {
     logout() {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
-        window.location.href = '/passenger/login.html';
+        window.history.go(-(window.history.length - 1));
+        window.location.reload();
     },
 
     requireAuth() {
         if (!this.isLoggedIn()) {
-            window.location.href = '/passenger/login.html';
+            window.location.reload();
             return false;
         }
         return true;

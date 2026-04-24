@@ -109,8 +109,7 @@
   <div class="logo">Urban<span>Go</span></div>
   <div>
     <span class="user-info" id="userName"></span>
-    <button class="btn-logout" onclick="logout()">Salir</button>
-  </div>
+<button class="btn-logout" onclick="localStorage.clear();location.reload();">Salir</button>  </div>
 </div>
 
 <div id="mapContainer">
@@ -344,7 +343,8 @@ window.newTrip = function() {
 
 window.logout = function() {
     if (ws) ws.close();
-    auth.logout();
+    localStorage.clear();
+    window.location.reload();
 }
 
 function showStep(n) {
