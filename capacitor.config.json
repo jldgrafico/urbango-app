@@ -1,5 +1,15 @@
 {
   "appId": "com.urbango.app",
   "appName": "UrbanGo",
-  "webDir": "src"
+  "webDir": "src",
+  "android": {
+    "allowMixedContent": true
+  },
+  "server": {
+    "allowNavigation": [
+      "*.openstreetmap.org",
+      "*.tile.openstreetmap.org",
+      "urbango.duckdns.org"
+    ]
+  }
 }

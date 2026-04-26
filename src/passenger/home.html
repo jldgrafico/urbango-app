@@ -5,13 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>UrbanGo — Pasajero</title>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
   * { margin:0; padding:0; box-sizing:border-box; }
   body { font-family:'DM Sans',sans-serif; background:#0a0a0a; color:#f5f4f0; height:100vh; overflow:hidden; display:flex; flex-direction:column; }
 
-  /* HEADER */
   #header {
     position:relative; z-index:500;
     background:#0a0a0a; border-bottom:1px solid #1e1e1e;
@@ -24,22 +21,17 @@
   .user-info { font-size:12px; color:#888; }
   .btn-logout { background:none; border:1px solid #2e2e2e; color:#888; border-radius:8px; padding:4px 10px; font-size:12px; cursor:pointer; }
 
-  /* MAPA */
   #mapContainer { flex:1; position:relative; min-height:0; }
   #map { width:100%; height:100%; }
-  .leaflet-tile { filter: brightness(0.7) saturate(0.5); }
 
-  /* PANEL INFERIOR */
   #panel {
     position:absolute; bottom:0; left:0; right:0; z-index:400;
     background:#0a0a0a; border-radius:24px 24px 0 0;
     border-top:1px solid #1e1e1e;
     padding:0 16px 32px;
-    transition:transform .4s cubic-bezier(.16,1,.3,1);
   }
   .handle { width:40px; height:4px; background:#2e2e2e; border-radius:2px; margin:12px auto 16px; }
 
-  /* STEPS */
   .step { display:none; flex-direction:column; gap:12px; }
   .step.active { display:flex; }
   .step-title { font-family:'Syne',sans-serif; font-size:20px; font-weight:700; }
@@ -65,7 +57,6 @@
   .btn-main.danger { background:#f87171; color:#fff; }
   .btn-main.ghost { background:#1a1a1a; color:#f5f4f0; }
 
-  /* Tarjeta conductor */
   .driver-card {
     background:#1a1a1a; border-radius:14px; padding:14px;
     display:flex; gap:12px; align-items:center;
@@ -83,18 +74,12 @@
     font-family:'Syne',sans-serif; font-size:12px; font-weight:700;
     border:1px solid #2e2e2e; letter-spacing:1px;
   }
-
-  /* Status badge */
   .status-badge {
     background:#1a2a00; border:1px solid #e8ff47;
     border-radius:10px; padding:10px 14px;
     font-size:13px; color:#e8ff47; text-align:center;
   }
-
-  /* Fare info */
-  .fare-info {
-    display:flex; gap:10px;
-  }
+  .fare-info { display:flex; gap:10px; }
   .fare-card {
     flex:1; background:#1a1a1a; border-radius:12px; padding:12px;
     text-align:center;
@@ -109,7 +94,8 @@
   <div class="logo">Urban<span>Go</span></div>
   <div>
     <span class="user-info" id="userName"></span>
-<button class="btn-logout" onclick="localStorage.clear();location.reload();">Salir</button>  </div>
+    <button class="btn-logout" onclick="localStorage.clear();window.location.href='/passenger/login.html';">Salir</button>
+  </div>
 </div>
 
 <div id="mapContainer">
@@ -119,12 +105,11 @@
 <div id="panel">
   <div class="handle"></div>
 
-  <!-- Step 0: Solicitar viaje -->
   <div class="step active" id="step0">
     <div class="step-title">¿A dónde <span>vamos?</span></div>
     <div class="input-row">
       <span>📍</span>
-      <input type="text" id="originInput" placeholder="Tu ubicación actual" readonly>
+      <input type="text" id="originInput" placeholder="Obteniendo ubicación..." readonly>
     </div>
     <div class="input-row">
       <span>🎯</span>
@@ -133,24 +118,22 @@
     <button class="btn-main" id="btnRequest" onclick="requestTrip()" disabled>Buscar viaje →</button>
   </div>
 
-  <!-- Step 1: Buscando conductor -->
   <div class="step" id="step1">
     <div class="step-title">Buscando <span>conductor...</span></div>
     <div class="status-badge">🔍 Conectando con conductores cercanos</div>
     <button class="btn-main ghost" onclick="cancelTrip()">Cancelar</button>
   </div>
 
-  <!-- Step 2: Conductor asignado -->
   <div class="step" id="step2">
     <div class="step-title">Conductor en <span>camino</span></div>
     <div class="driver-card">
       <div class="driver-avatar">👨‍✈️</div>
       <div style="flex:1">
-        <div class="driver-name" id="driverName">Carlos Mendoza</div>
+        <div class="driver-name" id="driverName">Conductor</div>
         <div class="driver-name" style="font-size:11px;color:#e8ff47" id="tripStatus">Aceptado</div>
-        <div class="driver-sub">Toyota Corolla · Blanco</div>
+        <div class="driver-sub">Vehículo asignado</div>
       </div>
-      <div class="driver-plate">ABC-234</div>
+      <div class="driver-plate">---</div>
     </div>
     <div class="fare-info">
       <div class="fare-card">
@@ -165,7 +148,6 @@
     <button class="btn-main danger" onclick="cancelTrip()">Cancelar viaje</button>
   </div>
 
-  <!-- Step 3: Viaje completado -->
   <div class="step" id="step3">
     <div class="step-title">¡Viaje <span>completado!</span> 🎉</div>
     <div class="fare-info">
@@ -178,94 +160,90 @@
   </div>
 </div>
 
-<script type="module">
-import api from '../shared/api.js';
-import auth from '../shared/auth.js';
+<!-- Google Maps JavaScript API -->
+<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDyfS3_Q-7a0sIcqde7ebDOcg0va3jwh4g&callback=initMap" async defer></script>
 
-// Verificar autenticación
-if (!auth.requireAuth()) return;
+<script>
+const API_URL = 'https://urbango.duckdns.org';
 
-const user = auth.getUser();
-document.getElementById('userName').textContent = user.full_name;
+// Auth check
+const token = localStorage.getItem('token');
+const userStr = localStorage.getItem('user');
+if (!token || !userStr) {
+    window.location.href = '/passenger/login.html';
+}
+const user = JSON.parse(userStr || '{}');
+document.getElementById('userName').textContent = user.full_name || '';
 
 let map, userMarker, driverMarker;
-let userLat, userLng;
+let userLat = 10.4806;
+let userLng = -66.9036;
 let currentTripId = null;
 let ws = null;
-let currentStep = 0;
 
-// Función para obtener ubicación con fallback
-async function getLocation() {
-    // Intentar con Capacitor primero
-    try {
-        if (window.Capacitor && window.Capacitor.isNativePlatform()) {
-            const { Geolocation } = await import('@capacitor/geolocation');
-            const pos = await Geolocation.getCurrentPosition({ timeout: 10000 });
-            return { lat: pos.coords.latitude, lng: pos.coords.longitude };
-        }
-    } catch(e) {
-        console.log('Capacitor GPS falló, usando navegador');
+// Callback de Google Maps
+window.initMap = function() {
+    map = new google.maps.Map(document.getElementById('map'), {
+        center: { lat: userLat, lng: userLng },
+        zoom: 15,
+        disableDefaultUI: true,
+        styles: [
+            { elementType: 'geometry', stylers: [{ color: '#1a1a2e' }] },
+            { elementType: 'labels.text.fill', stylers: [{ color: '#8888aa' }] },
+            { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#2e2e4e' }] },
+            { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#1a1a3e' }] },
+            { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#0d1b2a' }] },
+        ]
+    });
+
+    // Intentar GPS real
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+            pos => {
+                userLat = pos.coords.latitude;
+                userLng = pos.coords.longitude;
+                map.setCenter({ lat: userLat, lng: userLng });
+                if (userMarker) userMarker.setPosition({ lat: userLat, lng: userLng });
+                document.getElementById('originInput').value = `${userLat.toFixed(4)}, ${userLng.toFixed(4)}`;
+            },
+            () => {
+                document.getElementById('originInput').value = 'Ubicación por defecto';
+            },
+            { timeout: 10000, enableHighAccuracy: true }
+        );
     }
 
-    // Fallback al navegador
-    return new Promise((resolve) => {
-        if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(
-                pos => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-                () => resolve({ lat: 10.4806, lng: -66.9036 }),
-                { timeout: 10000 }
-            );
-        } else {
-            resolve({ lat: 10.4806, lng: -66.9036 });
+    userMarker = new google.maps.Marker({
+        position: { lat: userLat, lng: userLng },
+        map: map,
+        title: 'Mi ubicación',
+        icon: {
+            path: google.maps.SymbolPath.CIRCLE,
+            scale: 10,
+            fillColor: '#e8ff47',
+            fillOpacity: 1,
+            strokeColor: '#ffffff',
+            strokeWeight: 2,
         }
     });
-}
-
-// Inicializar mapa
-async function initMap() {
-    map = L.map('map', { zoomControl: false, attributionControl: false }).setView([10.4806, -66.9036], 14);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-
-    // Obtener ubicación
-    const location = await getLocation();
-    userLat = location.lat;
-    userLng = location.lng;
-
-    map.setView([userLat, userLng], 15);
-
-    userMarker = L.marker([userLat, userLng], {
-        icon: L.divIcon({
-            html: '<div style="width:36px;height:36px;border-radius:50%;background:#1e1e1e;border:3px solid #e8ff47;display:flex;align-items:center;justify-content:center;font-size:16px">🧑‍💼</div>',
-            className:'', iconSize:[36,36], iconAnchor:[18,18]
-        })
-    }).addTo(map);
 
     document.getElementById('originInput').value = `${userLat.toFixed(4)}, ${userLng.toFixed(4)}`;
     document.getElementById('btnRequest').disabled = false;
-}
 
-// Conectar WebSocket del pasajero
+    connectWS();
+};
+
 function connectWS() {
-    ws = new WebSocket(`ws://localhost:8000/ws/passenger/${user.id}`);
-
+    ws = new WebSocket(`wss://urbango.duckdns.org/ws/passenger/${user.id}`);
     ws.onmessage = (event) => {
         const data = JSON.parse(event.data);
-
-        if (data.type === 'trip_status_update') {
-            updateTripStatus(data.status, data.driver_id);
-        }
-
-        if (data.type === 'driver_location') {
-            updateDriverOnMap(data.lat, data.lng);
-        }
+        if (data.type === 'trip_status_update') updateTripStatus(data.status);
+        if (data.type === 'driver_location') updateDriverOnMap(data.lat, data.lng);
     };
-
-    ws.onclose = () => {
-        setTimeout(connectWS, 3000);
-    };
+    ws.onclose = () => setTimeout(connectWS, 3000);
 }
 
-function updateTripStatus(status, driverId) {
+function updateTripStatus(status) {
     const statusMap = {
         'accepted': '✅ Conductor aceptó',
         'driver_en_route': '🚗 Conductor en camino',
@@ -274,15 +252,9 @@ function updateTripStatus(status, driverId) {
         'in_progress': '🚀 Viaje en curso',
         'completed': '🏁 Completado'
     };
-
-    if (document.getElementById('tripStatus')) {
-        document.getElementById('tripStatus').textContent = statusMap[status] || status;
-    }
-
-    if (['accepted','driver_en_route','arrived','onboard','in_progress'].includes(status)) {
-        showStep(2);
-    }
-
+    const el = document.getElementById('tripStatus');
+    if (el) el.textContent = statusMap[status] || status;
+    if (['accepted','driver_en_route','arrived','onboard','in_progress'].includes(status)) showStep(2);
     if (status === 'completed') {
         document.getElementById('finalFare').textContent = document.getElementById('fareAmount').textContent;
         showStep(3);
@@ -290,76 +262,87 @@ function updateTripStatus(status, driverId) {
 }
 
 function updateDriverOnMap(lat, lng) {
+    if (!map) return;
     if (driverMarker) {
-        driverMarker.setLatLng([lat, lng]);
+        driverMarker.setPosition({ lat, lng });
     } else {
-        driverMarker = L.marker([lat, lng], {
-            icon: L.divIcon({
-                html: '<div style="width:36px;height:36px;border-radius:50%;background:#1e1e1e;border:3px solid #e8ff47;display:flex;align-items:center;justify-content:center;font-size:16px">🚗</div>',
-                className:'', iconSize:[36,36], iconAnchor:[18,18]
-            })
-        }).addTo(map);
+        driverMarker = new google.maps.Marker({
+            position: { lat, lng },
+            map: map,
+            title: 'Conductor',
+            icon: {
+                path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
+                scale: 6,
+                fillColor: '#e8ff47',
+                fillOpacity: 1,
+                strokeColor: '#ffffff',
+                strokeWeight: 1,
+            }
+        });
     }
 }
 
-window.requestTrip = async function() {
+async function requestTrip() {
     const dest = document.getElementById('destInput').value.trim();
     if (!dest) return;
-
-    const token = auth.getToken();
-    const data = await api.post('/trips/request', {
-        origin_lat: userLat || 10.4806,
-        origin_lng: userLng || -66.9036,
-        origin_address: document.getElementById('originInput').value,
-        dest_lat: 10.49,
-        dest_lng: -66.89,
-        dest_address: dest,
-        payment_method: 'cash'
-    }, token);
-
-    if (data.id) {
-        currentTripId = data.id;
-        document.getElementById('fareAmount').textContent = `Bs. ${data.fare}`;
-        document.getElementById('distanceKm').textContent = `${data.distance_km} km`;
-        showStep(1);
+    try {
+        const response = await fetch(API_URL + '/trips/request', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+                origin_lat: userLat,
+                origin_lng: userLng,
+                origin_address: document.getElementById('originInput').value,
+                dest_lat: userLat + 0.01,
+                dest_lng: userLng + 0.01,
+                dest_address: dest,
+                payment_method: 'cash'
+            })
+        });
+        const data = await response.json();
+        if (data.id) {
+            currentTripId = data.id;
+            document.getElementById('fareAmount').textContent = `Bs. ${data.fare}`;
+            document.getElementById('distanceKm').textContent = `${data.distance_km} km`;
+            showStep(1);
+        }
+    } catch(e) {
+        console.error('Error solicitando viaje:', e);
     }
 }
 
-window.cancelTrip = async function() {
+async function cancelTrip() {
     if (currentTripId) {
-        const token = auth.getToken();
-        await api.patch(`/trips/${currentTripId}/status`, { status: 'cancelled' }, token);
+        await fetch(`${API_URL}/trips/${currentTripId}/status`, {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ status: 'cancelled' })
+        });
     }
     newTrip();
 }
 
-window.newTrip = function() {
+function newTrip() {
     currentTripId = null;
     document.getElementById('destInput').value = '';
     document.getElementById('btnRequest').disabled = true;
-    if (driverMarker) { map.removeLayer(driverMarker); driverMarker = null; }
     showStep(0);
-}
-
-window.logout = function() {
-    if (ws) ws.close();
-    localStorage.clear();
-    window.location.reload();
 }
 
 function showStep(n) {
     document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
-    document.getElementById('step'+n).classList.add('active');
-    currentStep = n;
+    document.getElementById('step' + n).classList.add('active');
 }
 
-// Input destino
 document.getElementById('destInput').addEventListener('input', function() {
     document.getElementById('btnRequest').disabled = this.value.length < 3;
 });
-
-initMap();
-connectWS();
 </script>
 </body>
 </html>

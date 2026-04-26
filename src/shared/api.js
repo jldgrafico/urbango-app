@@ -1,4 +1,4 @@
-const API_URL = 'http://164.90.140.60:8001';
+const API_URL = 'https://urbango.duckdns.org';
 const api = {
     async post(endpoint, data, token = null) {
         const headers = { 'Content-Type': 'application/json' };
