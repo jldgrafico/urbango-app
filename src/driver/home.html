@@ -5,8 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>UrbanGo — Conductor</title>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
   * { margin:0; padding:0; box-sizing:border-box; }
   body { font-family:'DM Sans',sans-serif; background:#0a0a0a; color:#f5f4f0; height:100vh; overflow:hidden; display:flex; flex-direction:column; }
@@ -29,7 +27,6 @@
 
   #mapContainer { flex:1; position:relative; min-height:0; }
   #map { width:100%; height:100%; }
-  .leaflet-tile { filter: brightness(0.7) saturate(0.5); }
 
   #panel {
     position:absolute; bottom:0; left:0; right:0; z-index:400;
@@ -45,7 +42,6 @@
   .step-title { font-family:'Syne',sans-serif; font-size:20px; font-weight:700; }
   .step-title span { color:#e8ff47; }
 
-  /* Toggle */
   .toggle-row {
     display:flex; align-items:center; justify-content:space-between;
     background:#1a1a1a; border-radius:14px; padding:14px 16px;
@@ -64,13 +60,11 @@
   .toggle-sw.on { background:#1a2a00; border:1px solid #e8ff47; }
   .toggle-sw.on::after { transform:translateX(24px); background:#e8ff47; }
 
-  /* Stats */
   .stats-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
   .stat-card { background:#1a1a1a; border-radius:12px; padding:14px; }
   .stat-val { font-family:'Syne',sans-serif; font-weight:800; font-size:24px; color:#e8ff47; }
   .stat-label { font-size:11px; color:#888; margin-top:4px; }
 
-  /* Solicitud entrante */
   .incoming-card {
     background:linear-gradient(135deg, #1a2a00, #0a1500);
     border:2px solid #e8ff47; border-radius:18px; padding:16px;
@@ -93,7 +87,6 @@
   .route-dot.origin { background:#e8ff47; }
   .route-dot.dest { background:#ff6b35; }
   .route-text { font-size:13px; line-height:1.4; }
-  .route-text small { color:#888; font-size:11px; }
   .route-line { width:2px; height:14px; background:#2e2e2e; margin-left:4px; }
 
   .inc-stats { display:flex; gap:10px; }
@@ -118,7 +111,6 @@
   .btn-danger { background:#f87171; color:#fff; }
   .btn-ghost { background:#1a1a1a; color:#f5f4f0; border:1px solid #2e2e2e; }
 
-  /* Pasajero card */
   .passenger-card {
     background:#1a1a1a; border-radius:14px; padding:14px;
     display:flex; gap:12px; align-items:center;
@@ -138,7 +130,7 @@
 <div id="header">
   <div class="logo">Urban<span>Go</span></div>
   <div style="display:flex;align-items:center;gap:10px">
-    <span class="user-info" id="driverName" style="font-size:12px;color:#888"></span>
+    <span id="driverName" style="font-size:12px;color:#888"></span>
     <span class="status-pill" id="statusPill">Offline</span>
   </div>
 </div>
@@ -164,7 +156,8 @@
       <div class="stat-card"><div class="stat-val" id="totalTrips">0</div><div class="stat-label">Viajes hoy</div></div>
       <div class="stat-card"><div class="stat-val" id="totalEarnings">Bs.0</div><div class="stat-label">Ganancias</div></div>
     </div>
-  <button onclick="localStorage.clear();location.reload();" ...>Cerrar sesión</button>  </div>
+    <button class="btn-full btn-ghost" onclick="localStorage.clear();window.location.href='/passenger/login.html';">Cerrar sesión</button>
+  </div>
 
   <!-- Step 1: Online esperando -->
   <div class="dstep" id="dStep1">
@@ -256,14 +249,20 @@
   </div>
 </div>
 
-<script type="module">
-import api from '../shared/api.js';
-import auth from '../shared/auth.js';
+<!-- Google Maps JavaScript API -->
+<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDyfS3_Q-7a0sIcqde7ebDOcg0va3jwh4g&callback=initMap" async defer></script>
 
-if (!auth.requireAuth()) return;
+<script>
+const API_URL = 'https://urbango.duckdns.org';
 
-const user = auth.getUser();
-document.getElementById('driverName').textContent = user.full_name;
+// Auth check
+const token = localStorage.getItem('token');
+const userStr = localStorage.getItem('user');
+if (!token || !userStr) {
+    window.location.href = '/passenger/login.html';
+}
+const user = JSON.parse(userStr || '{}');
+document.getElementById('driverName').textContent = user.full_name || '';
 
 let map, driverMarker;
 let ws = null;
@@ -271,46 +270,59 @@ let currentTripId = null;
 let currentTrip = null;
 let timerInterval = null;
 let locationInterval = null;
-let driverLat = 10.4806, driverLng = -66.9036;
+let driverLat = 10.4806;
+let driverLng = -66.9036;
 
-// Inicializar mapa
-function initMap() {
-    map = L.map('map', { zoomControl: false, attributionControl: false }).setView([driverLat, driverLng], 14);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+window.initMap = function() {
+    map = new google.maps.Map(document.getElementById('map'), {
+        center: { lat: driverLat, lng: driverLng },
+        zoom: 15,
+        disableDefaultUI: true,
+        styles: [
+            { elementType: 'geometry', stylers: [{ color: '#1a1a2e' }] },
+            { elementType: 'labels.text.fill', stylers: [{ color: '#8888aa' }] },
+            { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#2e2e4e' }] },
+            { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#1a1a3e' }] },
+            { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#0d1b2a' }] },
+        ]
+    });
 
-    driverMarker = L.marker([driverLat, driverLng], {
-        icon: L.divIcon({
-            html: '<div style="width:36px;height:36px;border-radius:50%;background:#1e1e1e;border:3px solid #e8ff47;display:flex;align-items:center;justify-content:center;font-size:18px">🚗</div>',
-            className:'', iconSize:[36,36], iconAnchor:[18,18]
-        })
-    }).addTo(map);
+    driverMarker = new google.maps.Marker({
+        position: { lat: driverLat, lng: driverLng },
+        map: map,
+        title: 'Mi posición',
+        icon: {
+            path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
+            scale: 6,
+            fillColor: '#e8ff47',
+            fillOpacity: 1,
+            strokeColor: '#ffffff',
+            strokeWeight: 1,
+        }
+    });
 
-    // Intentar GPS real
+    // GPS real
     if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(pos => {
+        navigator.geolocation.watchPosition(pos => {
             driverLat = pos.coords.latitude;
             driverLng = pos.coords.longitude;
-            map.setView([driverLat, driverLng], 15);
-            driverMarker.setLatLng([driverLat, driverLng]);
-        });
+            map.setCenter({ lat: driverLat, lng: driverLng });
+            driverMarker.setPosition({ lat: driverLat, lng: driverLng });
+        }, null, { enableHighAccuracy: true });
     }
-}
+};
 
-// WebSocket conductor
 function connectWS() {
-    ws = new WebSocket(`ws://localhost:8000/ws/driver/${user.id}`);
+    ws = new WebSocket(`wss://urbango.duckdns.org/ws/driver/${user.id}`);
 
     ws.onopen = () => {
-        console.log('WebSocket conductor conectado');
+        console.log('Conductor conectado');
         startLocationUpdates();
     };
 
     ws.onmessage = (event) => {
         const data = JSON.parse(event.data);
-
-        if (data.type === 'trip_request') {
-            showTripRequest(data);
-        }
+        if (data.type === 'trip_request') showTripRequest(data);
     };
 
     ws.onclose = () => {
@@ -319,7 +331,6 @@ function connectWS() {
     };
 }
 
-// Enviar ubicación cada 5 segundos
 function startLocationUpdates() {
     locationInterval = setInterval(() => {
         if (ws && ws.readyState === WebSocket.OPEN) {
@@ -336,17 +347,14 @@ function stopLocationUpdates() {
     if (locationInterval) clearInterval(locationInterval);
 }
 
-// Mostrar solicitud entrante
 function showTripRequest(data) {
     currentTripId = data.trip_id;
     currentTrip = data;
-
     document.getElementById('incOrigin').textContent = data.origin;
     document.getElementById('incDest').textContent = data.destination;
     document.getElementById('incDist').textContent = `${data.distance_km} km`;
     document.getElementById('incFare').textContent = `Bs.${data.fare}`;
     document.getElementById('incPayment').textContent = data.payment_method === 'cash' ? '💵' : '💳';
-
     showDStep(2);
     startIncTimer();
 }
@@ -364,49 +372,44 @@ function startIncTimer() {
     }, 1000);
 }
 
-window.goOnline = async function() {
+function goOnline() {
     connectWS();
     document.getElementById('statusPill').textContent = '🟢 Online';
     document.getElementById('statusPill').classList.add('online');
     showDStep(1);
 }
 
-window.goOffline = function() {
+function goOffline() {
     if (ws) ws.close();
     document.getElementById('statusPill').textContent = 'Offline';
     document.getElementById('statusPill').classList.remove('online');
     showDStep(0);
 }
 
-window.acceptTrip = async function() {
+async function acceptTrip() {
     clearInterval(timerInterval);
-    const token = auth.getToken();
-    await api.patch(`/trips/${currentTripId}/status`, { status: 'accepted' }, token);
-
+    await apiPatch(`/trips/${currentTripId}/status`, { status: 'accepted' });
     document.getElementById('passengerName').textContent = 'Pasajero';
     document.getElementById('passengerName2').textContent = 'Pasajero';
     document.getElementById('passengerOrigin').textContent = currentTrip?.origin || '';
     document.getElementById('tripDest').textContent = currentTrip?.destination || '';
     document.getElementById('tripFare').textContent = `Bs.${currentTrip?.fare || 0}`;
     document.getElementById('tripFare2').textContent = `Bs.${currentTrip?.fare || 0}`;
-
-    await api.patch(`/trips/${currentTripId}/status`, { status: 'driver_en_route' }, token);
+    await apiPatch(`/trips/${currentTripId}/status`, { status: 'driver_en_route' });
     showDStep(3);
 }
 
-window.rejectTrip = function() {
+function rejectTrip() {
     clearInterval(timerInterval);
     currentTripId = null;
     currentTrip = null;
     showDStep(1);
 }
 
-window.updateStatus = async function(status) {
-    const token = auth.getToken();
-    await api.patch(`/trips/${currentTripId}/status`, { status }, token);
-
+async function updateStatus(status) {
+    await apiPatch(`/trips/${currentTripId}/status`, { status });
     if (status === 'arrived') {
-        await api.patch(`/trips/${currentTripId}/status`, { status: 'onboard' }, token);
+        await apiPatch(`/trips/${currentTripId}/status`, { status: 'onboard' });
         showDStep(4);
     } else if (status === 'completed') {
         document.getElementById('completedFare').textContent = document.getElementById('tripFare2').textContent;
@@ -418,24 +421,27 @@ window.updateStatus = async function(status) {
     }
 }
 
-window.backOnline = function() {
+function backOnline() {
     currentTripId = null;
     currentTrip = null;
     showDStep(1);
 }
 
-window.logout = function() {
-    if (ws) ws.close();
-    localStorage.clear();
-    window.location.href = '../passenger/login.html';
+async function apiPatch(endpoint, data) {
+    await fetch(API_URL + endpoint, {
+        method: 'PATCH',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(data)
+    });
 }
 
 function showDStep(n) {
     document.querySelectorAll('.dstep').forEach(s => s.classList.remove('active'));
-    document.getElementById('dStep'+n).classList.add('active');
+    document.getElementById('dStep' + n).classList.add('active');
 }
-
-initMap();
 </script>
 </body>
 </html>
